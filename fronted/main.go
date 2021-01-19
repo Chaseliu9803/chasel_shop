@@ -10,8 +10,6 @@ import (
 	"fmt"
 	"github.com/kataras/iris/v12"
 	"github.com/kataras/iris/v12/mvc"
-	"github.com/kataras/iris/v12/sessions"
-	"time"
 )
 
 func main() {
@@ -20,10 +18,12 @@ func main() {
 	//2.设置错误模式，在mvc模式下提示错误
 	app.Logger().SetLevel("debug")
 	//3.注册模板
-	template := iris.HTML("./fronted/web/views",".html").Layout("shared/layout.html").Reload(true)
+	template := iris.HTML("./web/views",".html").Layout("shared/layout.html").Reload(true)
 	app.RegisterView(template)
 	//4.设置模板目录
-	app.HandleDir("public","./fronted/web/public")
+	app.HandleDir("/public","./web/public")
+	//访问生成好的html文件
+	app.HandleDir("/html","./web/htmlProductShow")
 	//5.出现异常调到指定页面
 	app.OnAnyErrorCode(func(ctx iris.Context) {
 		ctx.ViewData("message",ctx.Values().GetStringDefault("message", "访问的页面出错"))
@@ -40,16 +40,12 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	sess := sessions.New(sessions.Config{
-		Cookie: "helloworld",
-		Expires: 60*time.Minute,
-	})
 
 	//注册控制器
 	user := repositories.NewUserRepository("user",db)
 	userService := services.NewUserService(user)
 	userPro := mvc.New(app.Party("/user"))
-	userPro.Register(userService,ctx,sess.Start)
+	userPro.Register(userService,ctx)
 	userPro.Handle(new(controller.UserController))
 
 	product := repositories.NewProductManager("product", db)
@@ -59,11 +55,11 @@ func main() {
 	productParty := app.Party("/product")
 	productPro := mvc.New(productParty)
 	productParty.Use(middleware.AuthConProduct)
-	productPro.Register(productService, orderService, ctx, sess.Start)
+	productPro.Register(productService, orderService, ctx)
 	productPro.Handle(new(controller.ProductController))
 
 	app.Run(
-		iris.Addr("0.0.0.0:8082"),
+		iris.Addr("0.0.0.0:8083"),
 		)
 
 }
